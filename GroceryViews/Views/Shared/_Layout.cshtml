@@ -21,7 +21,10 @@
                         @if (User.Identity != null && User.Identity.IsAuthenticated)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-success" asp-controller="sales" asp-action="index">Sell</a>
+                                <a class="nav-link text-success" asp-controller="sales" asp-action="index">Sell (Old)</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-warning font-weight-bold" asp-controller="POS" asp-action="Index">POS System</a>
                             </li>
                             @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
                             {

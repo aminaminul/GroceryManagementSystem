@@ -1,0 +1,399 @@
+@{
+    ViewData["Title"] = "Fast POS - Grocery Management";
+}
+
+<div id="pos-root" class="min-h-screen bg-[#f8fafc]"></div>
+
+@section Scripts {
+    <!-- Modern POS Stack -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const POSApp = () => {
+            const [products, setProducts] = useState([]);
+            const [cart, setCart] = useState([]);
+            const [discount, setDiscount] = useState(0);
+            const [discountType, setDiscountType] = useState(0); // 0: Percentage, 1: Fixed
+            const [searchTerm, setSearchTerm] = useState('');
+            const [loading, setLoading] = useState(true);
+            const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+            useEffect(() => {
+                fetch('/api/pos/products')
+                    .then(res => res.json())
+                    .then(data => {
+                        setProducts(data);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("Failed to load products", err);
+                        setLoading(false);
+                    });
+            }, []);
+
+            // Real-time calculation logic (Local)
+            const totals = useMemo(() => {
+                const subtotal = cart.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+                let discVal = 0;
+                if (discountType === 0) {
+                    discVal = subtotal * (discount / 100);
+                } else {
+                    discVal = parseFloat(discount || 0);
+                }
+                return {
+                    subtotal,
+                    discount: discVal,
+                    total: Math.max(0, subtotal - discVal)
+                };
+            }, [cart, discount, discountType]);
+
+            const addToCart = (product) => {
+                if (product.stockQuantity <= 0) {
+                    alert("Out of stock!");
+                    return;
+                }
+                
+                const existing = cart.find(item => item.productId === product.id);
+                if (existing) {
+                    if (existing.quantity >= product.stockQuantity) {
+                        alert("Cannot add more than available stock.");
+                        return;
+                    }
+                    setCart(cart.map(item => 
+                        item.productId === product.id 
+                        ? { ...item, quantity: item.quantity + 1 } 
+                        : item
+                    ));
+                } else {
+                    setCart([...cart, {
+                        productId: product.id,
+                        name: product.name,
+                        quantity: 1,
+                        unitPrice: product.unitPrice
+                    }]);
+                }
+            };
+
+            const removeFromCart = (productId) => {
+                setCart(cart.filter(item => item.productId !== productId));
+            };
+
+            const updateQuantity = (productId, qty) => {
+                const product = products.find(p => p.id === productId);
+                if (qty < 1) return;
+                if (product && qty > product.stockQuantity) {
+                    alert("Exceeds available stock.");
+                    return;
+                }
+                setCart(cart.map(item => 
+                    item.productId === productId ? { ...item, quantity: qty } : item
+                ));
+            };
+
+            const handleCheckout = async () => {
+                if (cart.length === 0) return;
+                
+                setIsCheckingOut(true);
+                const order = {
+                    customerId: 1, // Default Customer
+                    orderDetails: cart.map(c => ({
+                        productId: c.productId,
+                        quantity: c.quantity,
+                        unitPrice: c.unitPrice,
+                        totalPrice: c.quantity * c.unitPrice
+                    })),
+                    totalAmount: totals.subtotal,
+                    discount: totals.discount,
+                    discountType: discountType,
+                    finalAmount: totals.total,
+                    paymentStatus: 1, // Paid
+                    orderStatus: 1 // Completed
+                };
+
+                try {
+                    const response = await fetch('/api/billing/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(order)
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        // Success Feedback
+                        const printWin = window.open('/POS/PrintInvoice/' + data.orderId, '_blank');
+                        setCart([]);
+                        setDiscount(0);
+                        // Refresh products to show updated stock
+                        const prodRes = await fetch('/api/pos/products');
+                        const prodData = await prodRes.json();
+                        setProducts(prodData);
+                    } else {
+                        alert("Checkout failed: " + data.message);
+                    }
+                } catch (err) {
+                    alert("An error occurred during checkout.");
+                } finally {
+                    setIsCheckingOut(false);
+                }
+            };
+
+            const filteredProducts = products.filter(p => 
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.barcode && p.barcode.includes(searchTerm))
+            );
+
+            if (loading) return (
+                <div className="h-screen flex items-center justify-center bg-slate-900">
+                    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-emerald-500"></div>
+                </div>
+            );
+
+            return (
+                <div className="flex flex-col lg:flex-row h-screen bg-[#0f172a] text-slate-200 font-['Plus_Jakarta_Sans'] overflow-hidden">
+                    
+                    {/* Sidebar / Left Navigation (Optional) */}
+                    <div className="hidden lg:flex w-20 flex-col items-center py-8 bg-slate-900/50 border-r border-slate-800 gap-8">
+                        <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                        </div>
+                        <div className="flex flex-col gap-6 mt-12">
+                            <NavItem icon="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" active />
+                            <NavItem icon="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            <NavItem icon="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </div>
+                    </div>
+
+                    {/* Product Selection */}
+                    <div className="flex-1 flex flex-col min-w-0 bg-[#0f172a]">
+                        <header className="p-6 flex items-center justify-between gap-6">
+                            <div className="relative flex-1 max-w-2xl group">
+                                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                                    <svg className="w-5 h-5 text-slate-500 group-focus-within:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search products by name or barcode..." 
+                                    className="block w-full pl-14 pr-4 py-4 bg-slate-900/50 border border-slate-800 rounded-3xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all text-lg shadow-2xl"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button className="p-4 bg-slate-800/50 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-slate-700/50">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                </button>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-sm font-bold text-slate-400">Terminal #01</span>
+                                    <span className="text-xs text-emerald-500 font-black uppercase tracking-widest">Online</span>
+                                </div>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+                                {filteredProducts.map(product => (
+                                    <ProductCard 
+                                        key={product.id} 
+                                        product={product} 
+                                        onClick={() => addToCart(product)} 
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Order Summary / Checkout Panel */}
+                    <div className="w-full lg:w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-[-20px_0_50px_-15px_rgba(0,0,0,0.5)]">
+                        <div className="p-8 flex items-center justify-between border-b border-slate-800 bg-slate-900/80 backdrop-blur-xl sticky top-0 z-10">
+                            <div>
+                                <h2 className="text-2xl font-black tracking-tight text-white">Current Order</h2>
+                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Order #88219</p>
+                            </div>
+                            <button 
+                                onClick={() => setCart([])}
+                                className="p-3 bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all duration-300"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
+                            {cart.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center opacity-20">
+                                    <div className="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                                        <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                                    </div>
+                                    <p className="text-xl font-bold">Your cart is empty</p>
+                                </div>
+                            ) : cart.map(item => (
+                                <CartItem 
+                                    key={item.productId} 
+                                    item={item} 
+                                    onUpdateQty={(qty) => updateQuantity(item.productId, qty)}
+                                    onRemove={() => removeFromCart(item.productId)}
+                                />
+                            ))}
+                        </div>
+
+                        <div className="p-8 bg-slate-900/80 backdrop-blur-3xl border-t border-slate-800 space-y-6 shadow-[0_-20px_50px_-15px_rgba(0,0,0,0.5)]">
+                            {/* Discounts Section */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="relative group">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block">Discount Value</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-emerald-400 font-black focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
+                                        value={discount}
+                                        onChange={(e) => setDiscount(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block">Discount Type</label>
+                                    <select 
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-slate-200 font-bold focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all appearance-none cursor-pointer"
+                                        value={discountType}
+                                        onChange={(e) => setDiscountType(parseInt(e.target.value))}
+                                    >
+                                        <option value={0}>% Percentage</option>
+                                        <option value={1}>$ Fixed Amount</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Summary Table */}
+                            <div className="space-y-4 pt-4">
+                                <div className="flex justify-between items-center text-slate-400 font-medium">
+                                    <span>Subtotal</span>
+                                    <span className="text-white font-bold tabular-nums">${totals.subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-rose-400 font-medium italic">
+                                    <span className="flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"></path></svg>
+                                        Discount
+                                    </span>
+                                    <span className="font-black tabular-nums">-${totals.discount.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-end pt-6 border-t border-slate-800">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Payable Amount</span>
+                                        <span className="text-5xl font-black text-white tracking-tighter tabular-nums flex items-start mt-1">
+                                            <span className="text-2xl text-emerald-500 mt-1 mr-1">$</span>
+                                            {totals.total.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className="bg-emerald-500/10 text-emerald-500 text-[10px] font-black px-3 py-1.5 rounded-full border border-emerald-500/20 mb-2 animate-pulse">
+                                        TAX INCLUDED
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Checkout Button */}
+                            <button 
+                                onClick={handleCheckout}
+                                disabled={cart.length === 0 || isCheckingOut}
+                                className={`w-full py-6 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-4 transition-all duration-500 shadow-2xl active:scale-95 group ${
+                                    cart.length === 0 || isCheckingOut
+                                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-emerald-500/40 hover:-translate-y-1 active:shadow-none'
+                                }`}
+                            >
+                                {isCheckingOut ? (
+                                    <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                    <>
+                                        <span>CONFIRM CHECKOUT</span>
+                                        <svg className="w-8 h-8 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* Components */
+        const NavItem = ({ icon, active }) => (
+            <button className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${active ? 'bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-500/5' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={icon}></path></svg>
+            </button>
+        );
+
+        const ProductCard = ({ product, onClick }) => (
+            <div 
+                onClick={onClick}
+                className="group cursor-pointer relative bg-slate-900/50 border border-slate-800 rounded-[2rem] p-5 hover:bg-slate-800 hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/10 active:scale-95"
+            >
+                <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg transform rotate-12 group-hover:rotate-0 transition-transform">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
+                    </div>
+                </div>
+                
+                <div className="h-40 w-full bg-slate-900 rounded-3xl mb-4 overflow-hidden flex items-center justify-center border border-slate-800 group-hover:border-slate-700 transition-colors">
+                    <svg className="w-16 h-16 text-slate-700 group-hover:text-emerald-500 group-hover:scale-110 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                </div>
+
+                <h3 className="font-bold text-slate-100 mb-1 truncate text-lg">{product.name}</h3>
+                <div className="flex items-center justify-between mt-3">
+                    <span className="text-2xl font-black text-emerald-400 tracking-tight">${product.unitPrice.toFixed(2)}</span>
+                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${product.stockQuantity < 10 ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                        {product.stockQuantity} Left
+                    </div>
+                </div>
+            </div>
+        );
+
+        const CartItem = ({ item, onUpdateQty, onRemove }) => (
+            <div className="flex items-center gap-5 p-5 bg-slate-800/30 border border-slate-800 rounded-3xl group hover:bg-slate-800 transition-all duration-300">
+                <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-slate-600 group-hover:text-emerald-500 transition-colors">
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-slate-100 truncate mb-1">{item.name}</h4>
+                    <span className="text-emerald-400 font-black tracking-tight">${item.unitPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                    <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-500 transition-all p-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                    <div className="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-700 shadow-inner">
+                        <button onClick={() => onUpdateQty(item.quantity - 1)} className="w-8 h-8 flex items-center justify-center hover:text-emerald-500 transition-colors font-black">-</button>
+                        <span className="w-8 text-center text-sm font-black tabular-nums text-white">{item.quantity}</span>
+                        <button onClick={() => onUpdateQty(item.quantity + 1)} className="w-8 h-8 flex items-center justify-center hover:text-emerald-500 transition-colors font-black">+</button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const root = ReactDOM.createRoot(document.getElementById('pos-root'));
+        root.render(<POSApp />);
+    </script>
+
+    <style>
+        @@keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        #pos-root {
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        ::selection {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+    </style>
+}

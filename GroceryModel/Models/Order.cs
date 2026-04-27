@@ -12,6 +12,7 @@ namespace GroceryModel
         public DateTime OrderDate { get; set; } = DateTime.Now;
         public decimal TotalAmount { get; set; }
         public decimal Discount { get; set; }
+        public DiscountType DiscountType { get; set; } = DiscountType.Fixed;
         public decimal FinalAmount { get; set; }
         public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
         public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
