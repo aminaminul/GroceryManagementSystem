@@ -13,16 +13,19 @@ namespace GroceryViews.Controllers
         private readonly IProductsService _productsService;
         private readonly ITransactionsService _transactionsService;
         private readonly IPaymentsService _paymentsService;
+        private readonly IInventoryService _inventoryService;
 
         public SalesController(ICategoriesService categoriesService, 
                                IProductsService productsService, 
                                ITransactionsService transactionsService,
-                               IPaymentsService paymentsService)
+                               IPaymentsService paymentsService,
+                               IInventoryService inventoryService)
         {
             _categoriesService = categoriesService;
             _productsService = productsService;
             _transactionsService = transactionsService;
             _paymentsService = paymentsService;
+            _inventoryService = inventoryService;
         }
 
         public IActionResult Index()
@@ -68,11 +71,17 @@ namespace GroceryViews.Controllers
                     };
                     
                     _paymentsService.ProcessPayment(payment);
-
-                    prod.StockQuantity -= salesViewModel.QuantityToSell;
-                    _productsService.UpdateProduct(salesViewModel.SelectedProductId, prod);
                     
-                    TempData["Message"] = $"Payment {payment.Status}! Transaction completed successfully.";
+                    bool saleProcessed = _inventoryService.ProcessSale(salesViewModel.SelectedProductId, salesViewModel.QuantityToSell);
+                    
+                    if (saleProcessed)
+                    {
+                        TempData["Message"] = $"Payment {payment.Status}! Transaction completed successfully.";
+                    }
+                    else
+                    {
+                        TempData["Error"] = "Insufficient stock or error processing sale.";
+                    }
                 }
             }
 

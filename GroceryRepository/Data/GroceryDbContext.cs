@@ -23,6 +23,8 @@ namespace GroceryRepository.Data
         public DbSet<PurchaseDetails> PurchaseDetails { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<InventoryLog> InventoryLogs { get; set; }
+        public DbSet<Inventory> Inventories { get; set; }
+        public DbSet<Batch> Batches { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

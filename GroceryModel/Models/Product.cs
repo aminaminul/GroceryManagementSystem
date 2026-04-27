@@ -30,5 +30,8 @@ namespace GroceryModel
         public virtual Category? Category { get; set; }
         [ForeignKey("SupplierId")]
         public virtual Supplier? Supplier { get; set; }
+
+        public virtual ICollection<Batch> Batches { get; set; } = new List<Batch>();
+        public virtual Inventory? Inventory { get; set; }
     }
 }

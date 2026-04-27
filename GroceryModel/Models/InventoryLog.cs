@@ -9,6 +9,7 @@ namespace GroceryModel
         public int Id { get; set; }
         [Required]
         public int ProductId { get; set; }
+        public int? BatchId { get; set; }
         [Required]
         public InventoryChangeType ChangeType { get; set; }
         [Required]
@@ -17,9 +18,12 @@ namespace GroceryModel
         public int PreviousStock { get; set; }
         [Required]
         public int NewStock { get; set; }
+        public string? Remarks { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         [ForeignKey("ProductId")]
         public virtual Product? Product { get; set; }
+        [ForeignKey("BatchId")]
+        public virtual Batch? Batch { get; set; }
     }
 }
