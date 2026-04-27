@@ -1,0 +1,164 @@
+@model SalesViewModel
+
+@{
+    ViewData["Title"] = "Sales";
+}
+
+@section title {
+    <div class="row align-items-center">
+        <div class="col-7"><h3>Cashier's Console</h3></div>
+        <div class="col-5 text-end">
+            <span class="badge bg-secondary">Cashier: @User.Identity?.Name</span>
+        </div>
+    </div>
+}
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @TempData["Message"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-4">
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-body">
+                <div class="text-danger" asp-validation-summary="All"></div>
+                
+                <h6 class="card-title mb-3">Product Selection</h6>
+                <div class="form-group mb-3">
+                    <label class="form-label">Category</label>
+                    <select asp-for="SelectedCategoryId" class="form-select border-primary">
+                        <option value="">- Select Category -</option>
+                        @if (Model.Categories != null)
+                        {
+                            @foreach (var category in Model.Categories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div id="productsPartial" class="mb-3">
+                    @* Product List *@
+                </div>
+
+                <div id="productDetailPartial" class="mb-3">
+                    @* Product Details *@
+                </div>
+
+                <form method="post" asp-controller="sales" asp-action="sell" id="formSale" class="mt-4">
+                    <input asp-for="SelectedProductId" type="hidden" />
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="QuantityToSell" class="form-label"></label>
+                        <input asp-for="QuantityToSell" class="form-control" type="number" min="1" />
+                    </div>
+
+                    <hr />
+                    <h6 class="mb-3">Payment Information</h6>
+                    
+                    <div class="form-group mb-3">
+                        <label asp-for="SelectedPaymentMethod" class="form-label"></label>
+                        <select asp-for="SelectedPaymentMethod" class="form-select border-info" id="paymentMethodSelect">
+                            <option value="CashOnDelivery">Cash on Delivery (COD)</option>
+                            <option value="Bkash">Bkash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Card">Card</option>
+                        </select>
+                    </div>
+
+                    <div id="mobilePaymentField" class="form-group mb-3" style="display:none;">
+                        <label asp-for="MobileTransactionId" class="form-label"></label>
+                        <input asp-for="MobileTransactionId" class="form-control" placeholder="Enter Transaction ID" />
+                    </div>
+
+                    <div id="cardPaymentField" class="form-group mb-3" style="display:none;">
+                        <label asp-for="CardNumber" class="form-label"></label>
+                        <input asp-for="CardNumber" class="form-control" placeholder="Enter Card Number" />
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm">Complete Transaction</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-8">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">Today's Transactions</h5>
+            </div>
+            <div class="card-body">
+                @await Component.InvokeAsync("Transactions", User.Identity?.Name ?? "")
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Initialize the form
+            $("#formSale").hide();
+            $("#QuantityToSell").val("");
+
+            // Load products if category is already selected
+            var selectedCategoryId = $("#SelectedCategoryId").val();
+            if (selectedCategoryId > 0) {
+                loadProducts(selectedCategoryId);
+            }
+
+            // Handle category selection
+            $("#SelectedCategoryId").on("change", function () {
+                loadProducts($(this).val())
+            })
+
+            // Handle payment method change
+            $("#paymentMethodSelect").on("change", function () {
+                var method = $(this).val();
+                if (method === "Bkash" || method === "Nagad") {
+                    $("#mobilePaymentField").show();
+                    $("#cardPaymentField").hide();
+                } else if (method === "Card") {
+                    $("#mobilePaymentField").hide();
+                    $("#cardPaymentField").show();
+                } else {
+                    $("#mobilePaymentField").hide();
+                    $("#cardPaymentField").hide();
+                }
+            });
+
+            // Handle product selection
+            $("#productsPartial").on('click', '.product-row', function () {
+                $('.product-row').removeClass('highlight table-active');
+                $(this).addClass('highlight table-active');
+
+                var productId = $(this).attr('product-id');
+                $("#productDetailPartial").load("/sales/SellProductPartial", { productId: productId });
+
+                if (productId > 0) {
+                    $("#SelectedProductId").val(productId);
+                    $("#formSale").show();
+                } else {
+                    $("#SelectedProductId").val("");
+                    $("#formSale").hide();
+                }
+            });
+        });
+
+        function loadProducts(categoryId) {
+            $("#productsPartial").load("/products/ProductsByCategoryPartial", { categoryId: categoryId });
+            $("#productDetailPartial").html("");
+            $("#formSale").hide();
+        }
+    </script>
+    <style>
+        .highlight { cursor: pointer; transition: all 0.2s; }
+        .highlight:hover { background-color: #f8f9fa; }
+    </style>
+}

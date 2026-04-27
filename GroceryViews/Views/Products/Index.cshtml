@@ -1,0 +1,45 @@
+@model List<Product>
+
+@section title {
+    <h3>Manage Products</h3>
+}
+
+@if (Model != null && Model.Count() > 0) 
+{
+    <table class="table table-hover table-light">
+        <thead>
+            <tr>
+                <th>Category Name</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in Model)
+            {
+                <tr>
+                    <td class="py-2"><a class="btn btn-light disabled">@product.Category?.Name</a></td>
+                    <td class="py-2"><a class="btn btn-light disabled">@product.Name</a></td>
+                    <td class="py-2"><a class="btn btn-light disabled">@product.UnitPrice.ToString("c")</a></td>
+                    <td class="py-2"><a class="btn btn-light disabled">@product.StockQuantity</a></td>   
+                    <td class="py-2"><a class="btn btn-outline-primary" asp-controller="products" asp-action="edit" asp-route-id="@product.Id">Edit</a></td>
+                    <td class="py-2"><a class="btn btn-outline-danger" asp-controller="products" asp-action="delete" asp-route-id="@product.Id" onclick="return confirmDelete()">Delete</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<div class="col-2">
+    <a class="btn btn-primary" asp-controller="products" asp-action="add">Add</a>
+</div>
+
+@section Scripts{
+    <script>
+        function confirmDelete(){
+            return confirm("Are you sure you want to delete this product?");
+        }
+    </script>
+}

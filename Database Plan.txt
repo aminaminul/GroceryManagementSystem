@@ -1,0 +1,132 @@
+🧑‍💼 User
+
+▪ Id (PK)
+▪ Name
+▪ Email
+▪ Password
+▪ Role (Admin / Employee / Customer)
+▪ PhoneNumber
+▪ Address
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Active/Inactive)
+
+Customer
+▪ Id (PK)
+▪ Name
+▪ PhoneNumber
+▪ Email
+▪ Address
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Active/Inactive)
+
+Employee
+
+▪ Id (PK)
+▪ Name
+▪ Email
+▪ PhoneNumber
+▪ Address
+▪ Gender
+▪ DateOfBirth
+▪ HireDate
+▪ Salary
+▪ Role (Manager / Cashier / Stock Manager / Delivery Staff)
+▪ NIDNumber (or National ID)
+▪ CreatedBy
+▪ ModifiedBy
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Active/Inactive)
+
+Supplier
+
+▪ Id (PK)
+▪ Name
+▪ ContactPerson
+▪ PhoneNumber
+▪ Email
+▪ Address
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Active/Inactive)
+
+Category
+
+▪ Id (PK)
+▪ Name
+▪ Description
+▪ CreatedBy
+▪ ModifiedBy
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Active/Inactive)
+
+Product
+▪ Id (PK)
+▪ Name
+▪ CategoryId (FK)
+▪ SupplierId (FK)
+▪ UnitPrice
+▪ StockQuantity
+▪ Barcode
+▪ ExpiryDate
+▪ CreatedBy
+▪ ModifiedBy
+▪ CreatedAt
+▪ ModifiedAt
+▪ Status (Available/OutOfStock)
+
+Order
+▪ Id (PK)
+▪ CustomerId (FK)
+▪ OrderDate
+▪ TotalAmount
+▪ Discount
+▪ FinalAmount
+▪ PaymentStatus (Paid/Unpaid)
+▪ OrderStatus (Pending/Completed/Cancelled)
+▪ CreatedAt
+▪ ModifiedAt
+
+OrderDetails
+▪ Id (PK)
+▪ OrderId (FK)
+▪ ProductId (FK)
+▪ Quantity
+▪ UnitPrice
+▪ TotalPrice
+
+Payment
+▪ Id (PK)
+▪ OrderId (FK)
+▪ PaymentMethod (Cash/Card/Mobile Banking)
+▪ PaidAmount
+▪ PaymentDate
+▪ Status (Success/Failed/Pending)
+
+Purchase
+▪ Id (PK)
+▪ SupplierId (FK)
+▪ PurchaseDate
+▪ TotalCost
+▪ CreatedAt
+▪ ModifiedAt
+
+PurchaseDetails
+▪ Id (PK)
+▪ PurchaseId (FK)
+▪ ProductId (FK)
+▪ Quantity
+▪ CostPrice
+▪ TotalCost
+
+InventoryLog
+▪ Id (PK)
+▪ ProductId (FK)
+▪ ChangeType (IN/OUT)
+▪ QuantityChanged
+▪ PreviousStock
+▪ NewStock
+▪ CreatedAt

@@ -1,0 +1,22 @@
+@model IEnumerable<Product>
+
+@if (Model != null && Model.Count() > 0)
+{
+    <table class="table table-hover table-light">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in Model)
+            {
+                <tr class="product-row" product-id="@product.Id">
+                    <td class="py-2">@product.Name</td>
+                    <td class="py-2">@product.StockQuantity</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
